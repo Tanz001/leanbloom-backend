@@ -32,6 +32,9 @@ type AffiliateRow = RowDataPacket & {
   business_hours: string | null;
   trust_badge_text: string | null;
   clinical_partner_note: string | null;
+  font_family: string | null;
+  border_radius: string | null;
+  header_theme: string | null;
   custom_domain: string | null;
 };
 
@@ -65,6 +68,9 @@ function mapAffiliate(row: AffiliateRow) {
     hidePoweredBy: Boolean(row.hide_powered_by),
     trustBadgeText: row.trust_badge_text || undefined,
     clinicalPartnerNote: row.clinical_partner_note || undefined,
+    fontFamily: row.font_family || 'Plus Jakarta Sans',
+    borderRadius: row.border_radius || 'rounded-xl',
+    headerTheme: row.header_theme || 'navy',
     patientsCount: 0,
     ordersCount: 0,
     revenue: 0,
@@ -87,6 +93,7 @@ const AFFILIATE_SELECT = `
     b.primary_color, b.secondary_color, b.logo_url, b.tagline, b.portal_title,
     b.welcome_message, b.support_email, b.support_phone, b.hide_powered_by,
     b.business_hours, b.trust_badge_text, b.clinical_partner_note,
+    b.font_family, b.border_radius, b.header_theme,
     (
       SELECT d.domain FROM domains d
       WHERE d.affiliate_id = a.id AND d.type = 'Custom Domain'
@@ -181,8 +188,9 @@ export const AffiliateService = {
         `INSERT INTO affiliate_branding
           (affiliate_id, primary_color, secondary_color, logo_url, portal_title,
            tagline, welcome_message, support_email, support_phone, hide_powered_by,
-           business_hours, trust_badge_text, clinical_partner_note)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           business_hours, trust_badge_text, clinical_partner_note,
+           font_family, border_radius, header_theme)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           affiliateId,
           input.primaryColor || '#173B72',
@@ -197,6 +205,9 @@ export const AffiliateService = {
           input.businessHours?.trim() || null,
           input.trustBadgeText?.trim() || null,
           input.clinicalPartnerNote?.trim() || null,
+          input.fontFamily || 'Plus Jakarta Sans',
+          input.borderRadius || 'rounded-xl',
+          input.headerTheme || 'navy',
         ]
       );
 
@@ -322,6 +333,18 @@ export const AffiliateService = {
       if (input.clinicalPartnerNote !== undefined) {
         brandingUpdates.push('clinical_partner_note = ?');
         brandingValues.push(input.clinicalPartnerNote);
+      }
+      if (input.fontFamily !== undefined) {
+        brandingUpdates.push('font_family = ?');
+        brandingValues.push(input.fontFamily);
+      }
+      if (input.borderRadius !== undefined) {
+        brandingUpdates.push('border_radius = ?');
+        brandingValues.push(input.borderRadius);
+      }
+      if (input.headerTheme !== undefined) {
+        brandingUpdates.push('header_theme = ?');
+        brandingValues.push(input.headerTheme);
       }
 
       if (brandingUpdates.length) {

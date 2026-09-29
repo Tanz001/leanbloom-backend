@@ -46,6 +46,13 @@ export const createAffiliateSchema = z.object({
   trustBadgeText: z.string().max(255).optional().or(z.literal('')),
   clinicalPartnerNote: z.string().max(2000).optional().or(z.literal('')),
   customDomain: z.string().max(255).optional().or(z.literal('')),
+  fontFamily: z
+    .enum(['Plus Jakarta Sans', 'Inter', 'Outfit', 'DM Sans', 'Playfair Display'])
+    .optional(),
+  borderRadius: z
+    .enum(['rounded-md', 'rounded-lg', 'rounded-xl', 'rounded-full'])
+    .optional(),
+  headerTheme: z.enum(['white', 'navy', 'dark', 'cream']).optional(),
   /** Master admin sets the affiliate owner password */
   ownerPassword: z.string().min(8).max(128),
 });
@@ -78,9 +85,57 @@ export const updateAffiliateSchema = z.object({
     }),
   trustBadgeText: z.string().max(255).optional().nullable(),
   clinicalPartnerNote: z.string().max(2000).optional().nullable(),
+  fontFamily: z
+    .enum(['Plus Jakarta Sans', 'Inter', 'Outfit', 'DM Sans', 'Playfair Display'])
+    .optional(),
+  borderRadius: z
+    .enum(['rounded-md', 'rounded-lg', 'rounded-xl', 'rounded-full'])
+    .optional(),
+  headerTheme: z.enum(['white', 'navy', 'dark', 'cream']).optional(),
+  customDomain: z.string().max(255).optional().nullable().or(z.literal('')),
   /** Optional: reset affiliate owner password */
   ownerPassword: z.string().min(8).max(128).optional(),
 });
+
+export const createDomainSchema = z.object({
+  affiliateId: z.string().uuid(),
+  domain: z.string().min(3).max(255),
+  type: z.enum(['Custom Domain', 'Platform Subdomain']).default('Custom Domain'),
+  target: z.string().max(255).optional().or(z.literal('')),
+  isPrimary: z
+    .union([z.boolean(), z.enum(['true', 'false', '1', '0'])])
+    .optional()
+    .transform((v) => {
+      if (v === undefined) return true;
+      if (typeof v === 'boolean') return v;
+      return v === 'true' || v === '1';
+    }),
+});
+
+export const updateDomainSchema = z.object({
+  isPrimary: z
+    .union([z.boolean(), z.enum(['true', 'false', '1', '0'])])
+    .optional()
+    .transform((v) => {
+      if (v === undefined) return undefined;
+      if (typeof v === 'boolean') return v;
+      return v === 'true' || v === '1';
+    }),
+  status: z
+    .enum(['Active', 'Pending DNS', 'SSL Generating', 'Configuration Error'])
+    .optional(),
+  hstsEnabled: z
+    .union([z.boolean(), z.enum(['true', 'false', '1', '0'])])
+    .optional()
+    .transform((v) => {
+      if (v === undefined) return undefined;
+      if (typeof v === 'boolean') return v;
+      return v === 'true' || v === '1';
+    }),
+});
+
+export type CreateDomainInput = z.infer<typeof createDomainSchema>;
+export type UpdateDomainInput = z.infer<typeof updateDomainSchema>;
 
 export const storefrontCheckoutSchema = z.object({
   affiliateId: z.string().uuid(),
@@ -172,3 +227,21 @@ export type SetAffiliatePriceInput = z.infer<typeof setAffiliatePriceSchema>;
 export type CreateAffiliatePatientInput = z.infer<
   typeof createAffiliatePatientSchema
 >;
+
+/** Self-serve profile update (name only; email change deferred) */
+export const updateProfileSchema = z.object({
+  name: z.string().trim().min(2).max(150),
+});
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1).max(128),
+    newPassword: z.string().min(8).max(128),
+  })
+  .refine((data) => data.currentPassword !== data.newPassword, {
+    message: 'New password must be different from current password',
+    path: ['newPassword'],
+  });
+
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;

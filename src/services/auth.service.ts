@@ -5,7 +5,12 @@ import { AuthUser, JwtPayload, PortalType } from '../types/auth';
 import { hashPassword, verifyPassword } from '../utils/password';
 import { signToken } from '../utils/jwt';
 import { slugify, uniqueSlug } from '../utils/slug';
-import { AffiliateSignupInput, LoginInput } from '../utils/validation';
+import {
+  AffiliateSignupInput,
+  ChangePasswordInput,
+  LoginInput,
+  UpdateProfileInput,
+} from '../utils/validation';
 
 type AdminRow = RowDataPacket & {
   id: string;
@@ -308,5 +313,87 @@ export const AuthService = {
       throw new AppError('User not found or inactive', 401);
     }
     return toPublicAffiliate(rows[0]);
+  },
+
+  async updateProfile(
+    user: AuthUser,
+    input: UpdateProfileInput
+  ): Promise<AuthResponse> {
+    const name = input.name.trim();
+
+    if (user.portal === 'admin') {
+      const [result] = await pool.execute<ResultSetHeader>(
+        `UPDATE admin_users SET name = ? WHERE id = ? AND status = 'Active'`,
+        [name, user.id]
+      );
+      if (!result.affectedRows) {
+        throw new AppError('User not found or inactive', 401);
+      }
+    } else {
+      const [result] = await pool.execute<ResultSetHeader>(
+        `UPDATE affiliate_users SET name = ? WHERE id = ? AND status = 'Active'`,
+        [name, user.id]
+      );
+      if (!result.affectedRows) {
+        throw new AppError('User not found or inactive', 401);
+      }
+    }
+
+    const updated = await this.getMe({ ...user, name });
+    return { token: buildToken(updated), user: updated };
+  },
+
+  async changePassword(
+    user: AuthUser,
+    input: ChangePasswordInput
+  ): Promise<void> {
+    if (user.portal === 'admin') {
+      const [rows] = await pool.execute<AdminRow[]>(
+        `SELECT id, password_hash, status FROM admin_users WHERE id = ? LIMIT 1`,
+        [user.id]
+      );
+      const row = rows[0];
+      if (!row || row.status !== 'Active') {
+        throw new AppError('User not found or inactive', 401);
+      }
+
+      const valid = await verifyPassword(
+        input.currentPassword,
+        row.password_hash
+      );
+      if (!valid) {
+        throw new AppError('Current password is incorrect', 401);
+      }
+
+      const passwordHash = await hashPassword(input.newPassword);
+      await pool.execute(
+        `UPDATE admin_users SET password_hash = ? WHERE id = ?`,
+        [passwordHash, user.id]
+      );
+      return;
+    }
+
+    const [rows] = await pool.execute<AffiliateUserRow[]>(
+      `SELECT id, password_hash, status FROM affiliate_users WHERE id = ? LIMIT 1`,
+      [user.id]
+    );
+    const row = rows[0];
+    if (!row || row.status !== 'Active') {
+      throw new AppError('User not found or inactive', 401);
+    }
+
+    const valid = await verifyPassword(
+      input.currentPassword,
+      row.password_hash
+    );
+    if (!valid) {
+      throw new AppError('Current password is incorrect', 401);
+    }
+
+    const passwordHash = await hashPassword(input.newPassword);
+    await pool.execute(
+      `UPDATE affiliate_users SET password_hash = ? WHERE id = ?`,
+      [passwordHash, user.id]
+    );
   },
 };

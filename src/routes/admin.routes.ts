@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { AdminController } from '../controllers/admin.controller';
+import { DomainController } from '../controllers/domain.controller';
 import { requireAuth, requireMasterAdmin } from '../middleware/auth';
 import {
   affiliateLogoUpload,
@@ -12,6 +13,12 @@ router.use(requireAuth, requireMasterAdmin);
 
 router.get('/users', AdminController.listUsers);
 router.get('/dashboard/stats', AdminController.dashboardStats);
+
+router.get('/domains', DomainController.list);
+router.post('/domains', DomainController.create);
+router.patch('/domains/:id', DomainController.update);
+router.post('/domains/:id/verify', DomainController.verify);
+router.delete('/domains/:id', DomainController.remove);
 
 router.get('/affiliates', AdminController.listAffiliates);
 router.get('/affiliates/:id', AdminController.getAffiliate);

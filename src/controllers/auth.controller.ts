@@ -4,7 +4,9 @@ import { AppError } from '../middleware/errorHandler';
 import { AuthenticatedRequest } from '../types/auth';
 import {
   affiliateSignupSchema,
+  changePasswordSchema,
   loginSchema,
+  updateProfileSchema,
 } from '../utils/validation';
 
 export const AuthController = {
@@ -54,6 +56,51 @@ export const AuthController = {
       }
       const user = await AuthService.getMe(req.user);
       res.json({ user });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async updateProfile(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      if (!req.user) {
+        throw new AppError('Authentication required', 401);
+      }
+      const parsed = updateProfileSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw new AppError(parsed.error.issues[0]?.message || 'Invalid input', 400);
+      }
+
+      const result = await AuthService.updateProfile(req.user, parsed.data);
+      res.json({
+        message: 'Profile updated',
+        ...result,
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async changePassword(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      if (!req.user) {
+        throw new AppError('Authentication required', 401);
+      }
+      const parsed = changePasswordSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw new AppError(parsed.error.issues[0]?.message || 'Invalid input', 400);
+      }
+
+      await AuthService.changePassword(req.user, parsed.data);
+      res.json({ message: 'Password updated successfully' });
     } catch (err) {
       next(err);
     }

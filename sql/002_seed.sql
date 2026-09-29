@@ -30,13 +30,33 @@ INSERT INTO affiliates (
 );
 
 INSERT INTO affiliate_branding (
-  affiliate_id, primary_color, secondary_color, portal_title, support_email
+  affiliate_id, primary_color, secondary_color, portal_title, support_email,
+  tagline, welcome_message, support_phone, trust_badge_text
 ) VALUES (
   'b0000000-0000-4000-8000-000000000001',
   '#173B72',
   '#4FAF4A',
   'Wellness Partner Patient Portal',
-  'contact@wellnesspartner.com'
+  'contact@wellnesspartner.com',
+  'Physician-guided wellness & metabolic programs',
+  'Browse clinician-reviewed protocols tailored for your clinic. Complete intake and clinical review through LeanBloom / MyDose.',
+  '+1 (555) 100-2000',
+  'Licensed Telehealth Partner • Physician Network'
+);
+
+INSERT INTO domains (
+  id, affiliate_id, domain, type, target, status, ssl_status, is_primary, hsts_enabled, last_verified_at
+) VALUES (
+  'd0000000-0000-4000-8000-000000000001',
+  'b0000000-0000-4000-8000-000000000001',
+  'wellness-partner.leanbloom.health',
+  'Platform Subdomain',
+  'leanbloom.health',
+  'Active',
+  'Valid',
+  1,
+  1,
+  NOW(3)
 );
 
 INSERT INTO affiliate_users (

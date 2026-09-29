@@ -26,6 +26,15 @@ app.use(
         callback(null, true);
         return;
       }
+      // Storefront multi-tenant hosts (subdomains + common custom domains)
+      if (
+        /^https?:\/\/([a-z0-9-]+\.)*leanbloom\.(com|health)(:\d+)?$/i.test(
+          origin
+        )
+      ) {
+        callback(null, true);
+        return;
+      }
       callback(null, false);
     },
     credentials: true,

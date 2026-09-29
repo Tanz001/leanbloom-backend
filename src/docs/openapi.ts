@@ -154,6 +154,8 @@ LeanBloom Master Admin & Affiliate Partner Portal API.
 1. \`POST /api/auth/login\` with email/password (optional \`portal\`: \`admin\` | \`affiliate\`)
 2. Copy \`token\` from the response
 3. Click **Authorize** and paste: \`Bearer &lt;token&gt;\` or just the token
+4. Update display name via \`PATCH /api/auth/me\` (email change not supported yet)
+5. Change password via \`POST /api/auth/change-password\`
 
 ## Uploads
 Product images and affiliate logos are multipart fields (\`image\` / \`logo\`) and served under \`/uploads/...\`.
@@ -168,7 +170,7 @@ Product images and affiliate logos are multipart fields (\`image\` / \`logo\`) a
   ],
   tags: [
     { name: 'Health', description: 'Service health' },
-    { name: 'Auth', description: 'Login, signup, current user' },
+    { name: 'Auth', description: 'Login, signup, profile, password' },
     { name: 'Admin — Affiliates', description: 'Master admin affiliate CRUD' },
     { name: 'Admin — Products', description: 'Master admin catalog CRUD' },
     { name: 'Admin — Misc', description: 'Placeholder admin endpoints' },
@@ -247,6 +249,31 @@ Product images and affiliate logos are multipart fields (\`image\` / \`logo\`) a
           plan: { type: 'string' },
           address: { type: 'string' },
           notes: { type: 'string' },
+        },
+      },
+      UpdateProfileRequest: {
+        type: 'object',
+        required: ['name'],
+        properties: {
+          name: {
+            type: 'string',
+            minLength: 2,
+            maxLength: 150,
+            example: 'John Admin',
+          },
+        },
+      },
+      ChangePasswordRequest: {
+        type: 'object',
+        required: ['currentPassword', 'newPassword'],
+        properties: {
+          currentPassword: { type: 'string', format: 'password' },
+          newPassword: {
+            type: 'string',
+            format: 'password',
+            minLength: 8,
+            maxLength: 128,
+          },
         },
       },
     },
@@ -361,6 +388,72 @@ Product images and affiliate logos are multipart fields (\`image\` / \`logo\`) a
             },
           },
           '401': { description: 'Unauthorized' },
+        },
+      },
+      patch: {
+        tags: ['Auth'],
+        summary: 'Update own profile (name only)',
+        description:
+          'Updates display name for the authenticated admin or affiliate user. Email change is not supported yet. Returns a refreshed JWT.',
+        security: [{ BearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/UpdateProfileRequest' },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Profile updated',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    message: { type: 'string' },
+                    token: { type: 'string' },
+                    user: { $ref: '#/components/schemas/AuthUser' },
+                  },
+                },
+              },
+            },
+          },
+          '400': { description: 'Validation error' },
+          '401': { description: 'Unauthorized' },
+        },
+      },
+    },
+    '/api/auth/change-password': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Change own password',
+        security: [{ BearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ChangePasswordRequest' },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Password updated',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    message: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          '400': { description: 'Validation error' },
+          '401': { description: 'Unauthorized or wrong current password' },
         },
       },
     },
