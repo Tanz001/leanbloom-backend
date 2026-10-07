@@ -35,6 +35,7 @@ router.patch(
 router.delete('/affiliates/:id', AdminController.deleteAffiliate);
 
 router.get('/products', AdminController.listProducts);
+router.get('/pricing', AdminController.listPricing);
 router.get('/products/:id', AdminController.getProduct);
 router.post(
   '/products',

@@ -121,7 +121,7 @@ export const StorefrontService = {
 
     const [rows] = await pool.execute<RowDataPacket[]>(
       `SELECT
-         p.id, p.name, p.category, p.description, p.image_url,
+         p.id, p.name, p.category, p.description, p.image_url, p.buy_url,
          p.base_price, p.minimum_price, p.stock_status,
          app.selling_price, app.is_active AS price_active,
          a.default_markup
@@ -153,6 +153,7 @@ export const StorefrontService = {
           category: r.category as string,
           description: r.description || '',
           imageUrl: r.image_url || null,
+          buyUrl: r.buy_url || null,
           price: selling,
           basePrice,
           minimumPrice,

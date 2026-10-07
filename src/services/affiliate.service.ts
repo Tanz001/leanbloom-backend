@@ -377,20 +377,58 @@ export const AffiliateService = {
 
   async remove(id: string) {
     await this.getById(id);
+
+    const conn = await pool.getConnection();
+
+    /** Delete child rows; ignore tables that were never migrated in this DB */
+    async function deleteIfExists(
+      sql: string,
+      params: (string | number | null)[]
+    ) {
+      try {
+        await conn.execute(sql, params);
+      } catch (err) {
+        const mysqlErr = err as Error & { code?: string };
+        if (mysqlErr.code === 'ER_NO_SUCH_TABLE') return;
+        throw err;
+      }
+    }
+
     try {
-      await pool.execute(`DELETE FROM affiliates WHERE id = ?`, [id]);
+      await conn.beginTransaction();
+
+      // Clear RESTRICT children first so hard-delete works in admin
+      // Schema table is payment_transactions (not payments)
+      await deleteIfExists(
+        `DELETE FROM payment_transactions WHERE affiliate_id = ?`,
+        [id]
+      );
+      await deleteIfExists(
+        `DELETE FROM commission_records WHERE affiliate_id = ?`,
+        [id]
+      );
+      await deleteIfExists(`DELETE FROM orders WHERE affiliate_id = ?`, [id]);
+      await deleteIfExists(`DELETE FROM patients WHERE affiliate_id = ?`, [id]);
+
+      // Remaining rows (branding, users, domains, prices) cascade from affiliates
+      await conn.execute(`DELETE FROM affiliates WHERE id = ?`, [id]);
+
+      await conn.commit();
     } catch (err) {
+      await conn.rollback();
       const mysqlErr = err as Error & { code?: string };
       if (
         mysqlErr.code === 'ER_ROW_IS_REFERENCED_2' ||
         mysqlErr.code === 'ER_ROW_IS_REFERENCED'
       ) {
         throw new AppError(
-          'Cannot delete this affiliate because it has patients or orders. Suspend it instead.',
+          'Cannot delete this affiliate because related records still exist. Suspend it instead.',
           409
         );
       }
       throw err;
+    } finally {
+      conn.release();
     }
   },
 };

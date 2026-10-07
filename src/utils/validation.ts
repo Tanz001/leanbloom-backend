@@ -174,6 +174,13 @@ export const createProductSchema = z.object({
   ]),
   description: z.string().max(5000).optional().or(z.literal('')),
   imageUrl: z.string().max(500).optional().nullable(),
+  buyUrl: z
+    .string()
+    .max(500)
+    .optional()
+    .nullable()
+    .or(z.literal(''))
+    .transform((v) => (v === '' ? null : v)),
   basePrice: z.coerce.number().min(0),
   minimumPrice: z.coerce.number().min(0),
   status: z.enum(['Active', 'Draft', 'Archived']).default('Draft'),
@@ -197,6 +204,13 @@ export const updateProductSchema = z.object({
     .optional(),
   description: z.string().max(5000).optional().nullable(),
   imageUrl: z.string().max(500).optional().nullable(),
+  buyUrl: z
+    .string()
+    .max(500)
+    .optional()
+    .nullable()
+    .or(z.literal(''))
+    .transform((v) => (v === '' ? null : v)),
   basePrice: z.coerce.number().min(0).optional(),
   minimumPrice: z.coerce.number().min(0).optional(),
   status: z.enum(['Active', 'Draft', 'Archived']).optional(),

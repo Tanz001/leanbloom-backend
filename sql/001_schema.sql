@@ -153,6 +153,7 @@ CREATE TABLE products (
   category        ENUM('Medical Program', 'Telehealth Consult', 'Prescription Refill', 'Wellness Pack') NOT NULL,
   description     TEXT NULL,
   image_url       VARCHAR(500) NULL,
+  buy_url         VARCHAR(500) NULL,
   base_price      DECIMAL(12, 2) NOT NULL,
   minimum_price   DECIMAL(12, 2) NOT NULL,
   status          ENUM('Active', 'Draft', 'Archived') NOT NULL DEFAULT 'Draft',

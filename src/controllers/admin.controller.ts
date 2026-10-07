@@ -227,4 +227,17 @@ export const AdminController = {
       next(err);
     }
   },
+
+  async listPricing(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const pricing = await ProductService.listPricingOverview();
+      res.json({ pricing });
+    } catch (err) {
+      next(err);
+    }
+  },
 };
