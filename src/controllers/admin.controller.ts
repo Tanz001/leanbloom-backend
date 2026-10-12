@@ -1,9 +1,12 @@
 import { NextFunction, Response } from 'express';
 import { AffiliateService } from '../services/affiliate.service';
 import { ProductService } from '../services/product.service';
+import { AdminOpsService } from '../services/adminOps.service';
 import { AppError } from '../middleware/errorHandler';
 import { AuthenticatedRequest } from '../types/auth';
 import {
+  createAdminOrderSchema,
+  createAdminPatientSchema,
   createAffiliateSchema,
   createProductSchema,
   updateAffiliateSchema,
@@ -236,6 +239,82 @@ export const AdminController = {
     try {
       const pricing = await ProductService.listPricingOverview();
       res.json({ pricing });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // —— Patients ——
+  async listPatients(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const affiliateId =
+        typeof req.query.affiliateId === 'string'
+          ? req.query.affiliateId
+          : undefined;
+      const patients = await AdminOpsService.listPatients(affiliateId);
+      res.json({ patients });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async createPatient(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const parsed = createAdminPatientSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw new AppError(
+          parsed.error.issues[0]?.message || 'Invalid patient data',
+          400
+        );
+      }
+      const patient = await AdminOpsService.createPatient(parsed.data);
+      res.status(201).json({ message: 'Patient added', patient });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // —— Orders ——
+  async listOrders(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const affiliateId =
+        typeof req.query.affiliateId === 'string'
+          ? req.query.affiliateId
+          : undefined;
+      const orders = await AdminOpsService.listOrders(affiliateId);
+      res.json({ orders });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async createOrder(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const parsed = createAdminOrderSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw new AppError(
+          parsed.error.issues[0]?.message || 'Invalid order data',
+          400
+        );
+      }
+      const order = await AdminOpsService.createOrder(parsed.data);
+      res.status(201).json({ message: 'Order created', order });
     } catch (err) {
       next(err);
     }

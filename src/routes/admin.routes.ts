@@ -37,6 +37,11 @@ router.delete('/affiliates/:id', AdminController.deleteAffiliate);
 router.get('/products', AdminController.listProducts);
 router.get('/pricing', AdminController.listPricing);
 router.get('/products/:id', AdminController.getProduct);
+
+router.get('/patients', AdminController.listPatients);
+router.post('/patients', AdminController.createPatient);
+router.get('/orders', AdminController.listOrders);
+router.post('/orders', AdminController.createOrder);
 router.post(
   '/products',
   productImageUpload.single('image'),
