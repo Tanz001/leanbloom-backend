@@ -409,6 +409,7 @@ export const AffiliateService = {
       );
       await deleteIfExists(`DELETE FROM orders WHERE affiliate_id = ?`, [id]);
       await deleteIfExists(`DELETE FROM patients WHERE affiliate_id = ?`, [id]);
+      await deleteIfExists(`DELETE FROM buy_leads WHERE affiliate_id = ?`, [id]);
 
       // Remaining rows (branding, users, domains, prices) cascade from affiliates
       await conn.execute(`DELETE FROM affiliates WHERE id = ?`, [id]);

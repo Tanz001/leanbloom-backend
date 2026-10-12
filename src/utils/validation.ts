@@ -164,6 +164,14 @@ export const storefrontCheckoutSchema = z.object({
 
 export type StorefrontCheckoutInput = z.infer<typeof storefrontCheckoutSchema>;
 
+export const storefrontBuyLeadSchema = z.object({
+  email: z.string().email().max(255),
+  productId: z.string().uuid(),
+  affiliateId: z.string().uuid(),
+});
+
+export type StorefrontBuyLeadInput = z.infer<typeof storefrontBuyLeadSchema>;
+
 export const createProductSchema = z.object({
   name: z.string().min(2).max(200),
   category: z.enum([

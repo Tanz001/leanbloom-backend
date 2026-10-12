@@ -2,7 +2,10 @@ import { randomUUID } from 'crypto';
 import { RowDataPacket } from 'mysql2';
 import { pool } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
-import { StorefrontCheckoutInput } from '../utils/validation';
+import {
+  StorefrontBuyLeadInput,
+  StorefrontCheckoutInput,
+} from '../utils/validation';
 
 const SUBDOMAIN_BASE = process.env.SUBDOMAIN_BASE || 'leanbloom.com';
 
@@ -122,16 +125,10 @@ export const StorefrontService = {
     const [rows] = await pool.execute<RowDataPacket[]>(
       `SELECT
          p.id, p.name, p.category, p.description, p.image_url, p.buy_url,
-         p.base_price, p.minimum_price, p.stock_status,
-         app.selling_price, app.is_active AS price_active,
-         a.default_markup
+         p.base_price, p.minimum_price, p.stock_status
        FROM products p
-       CROSS JOIN affiliates a
-       LEFT JOIN affiliate_product_prices app
-         ON app.product_id = p.id AND app.affiliate_id = a.id
-       WHERE a.id = ? AND p.status = 'Active'
-       ORDER BY p.name ASC`,
-      [affiliateId]
+       WHERE p.status = 'Active'
+       ORDER BY p.name ASC`
     );
 
     return {
@@ -139,13 +136,6 @@ export const StorefrontService = {
       products: rows.map((r) => {
         const basePrice = Number(r.base_price);
         const minimumPrice = Number(r.minimum_price);
-        const markup = Number(r.default_markup) || 0;
-        const suggested =
-          Math.round(basePrice * (1 + markup / 100) * 100) / 100;
-        const selling =
-          r.selling_price != null && Number(r.price_active) === 1
-            ? Number(r.selling_price)
-            : Math.max(suggested, minimumPrice);
 
         return {
           id: r.id,
@@ -154,7 +144,8 @@ export const StorefrontService = {
           description: r.description || '',
           imageUrl: r.image_url || null,
           buyUrl: r.buy_url || null,
-          price: selling,
+          // Storefront always shows admin base price (affiliate custom pricing disabled)
+          price: basePrice,
           basePrice,
           minimumPrice,
           stockStatus: r.stock_status as string,
@@ -177,15 +168,10 @@ export const StorefrontService = {
     const placeholders = productIds.map(() => '?').join(',');
     const [productRows] = await pool.execute<RowDataPacket[]>(
       `SELECT
-         p.id, p.name, p.base_price, p.minimum_price, p.status,
-         app.selling_price, app.is_active AS price_active,
-         a.default_markup
+         p.id, p.name, p.base_price, p.minimum_price, p.status
        FROM products p
-       CROSS JOIN affiliates a
-       LEFT JOIN affiliate_product_prices app
-         ON app.product_id = p.id AND app.affiliate_id = a.id
-       WHERE a.id = ? AND p.id IN (${placeholders})`,
-      [input.affiliateId, ...productIds]
+       WHERE p.id IN (${placeholders})`,
+      [...productIds]
     );
 
     const byId = new Map(productRows.map((r) => [r.id as string, r]));
@@ -204,13 +190,7 @@ export const StorefrontService = {
       }
       const basePrice = Number(p.base_price);
       const minimumPrice = Number(p.minimum_price);
-      const markup = Number(p.default_markup) || 0;
-      const suggested =
-        Math.round(basePrice * (1 + markup / 100) * 100) / 100;
-      const unitPrice =
-        p.selling_price != null && Number(p.price_active) === 1
-          ? Number(p.selling_price)
-          : Math.max(suggested, minimumPrice);
+      const unitPrice = basePrice;
       if (unitPrice < minimumPrice) {
         throw new AppError(
           `Price for ${p.name} is below the platform minimum`,
@@ -336,5 +316,78 @@ export const StorefrontService = {
     } finally {
       conn.release();
     }
+  },
+
+  /** Capture email + product interest before Buy Now redirect */
+  async captureBuyLead(input: StorefrontBuyLeadInput) {
+    const email = input.email.toLowerCase().trim();
+
+    const [affRows] = await pool.execute<RowDataPacket[]>(
+      `SELECT id, name, status FROM affiliates WHERE id = ? LIMIT 1`,
+      [input.affiliateId]
+    );
+    if (!affRows[0]) throw new AppError('Affiliate not found', 404);
+    if (affRows[0].status !== 'Active') {
+      throw new AppError('This storefront is not accepting requests', 400);
+    }
+
+    const [prodRows] = await pool.execute<RowDataPacket[]>(
+      `SELECT id, name, status FROM products WHERE id = ? LIMIT 1`,
+      [input.productId]
+    );
+    if (!prodRows[0] || prodRows[0].status !== 'Active') {
+      throw new AppError('Product not available', 404);
+    }
+
+    const affiliateName = affRows[0].name as string;
+    const productName = prodRows[0].name as string;
+    const leadId = randomUUID();
+
+    await pool.execute(
+      `INSERT INTO buy_leads
+        (id, email, product_id, product_name, affiliate_id, affiliate_name)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        leadId,
+        email,
+        input.productId,
+        productName,
+        input.affiliateId,
+        affiliateName,
+      ]
+    );
+
+    // Light patient stub so the lead also appears under the affiliate
+    const [existing] = await pool.execute<RowDataPacket[]>(
+      `SELECT id FROM patients WHERE affiliate_id = ? AND email = ? LIMIT 1`,
+      [input.affiliateId, email]
+    );
+    if (existing[0]) {
+      await pool.execute(
+        `UPDATE patients
+         SET active_program = ?, last_activity_at = NOW(3), status = 'Pending Intake'
+         WHERE id = ?`,
+        [productName, existing[0].id]
+      );
+    } else {
+      const localPart = email.split('@')[0] || 'Customer';
+      const displayName =
+        localPart.charAt(0).toUpperCase() + localPart.slice(1);
+      await pool.execute(
+        `INSERT INTO patients
+          (id, affiliate_id, name, email, status, active_program, last_activity_at)
+         VALUES (?, ?, ?, ?, 'Pending Intake', ?, NOW(3))`,
+        [randomUUID(), input.affiliateId, displayName, email, productName]
+      );
+    }
+
+    return {
+      id: leadId,
+      email,
+      productId: input.productId,
+      productName,
+      affiliateId: input.affiliateId,
+      affiliateName,
+    };
   },
 };

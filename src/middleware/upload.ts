@@ -44,14 +44,16 @@ function makeStorage(dir: string, prefix: string) {
   });
 }
 
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
+
 export const productImageUpload = multer({
   storage: makeStorage(productsDir, 'product'),
   fileFilter: imageFileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: MAX_IMAGE_BYTES },
 });
 
 export const affiliateLogoUpload = multer({
   storage: makeStorage(logosDir, 'logo'),
   fileFilter: imageFileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: MAX_IMAGE_BYTES },
 });

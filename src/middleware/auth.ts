@@ -36,7 +36,7 @@ export function requireAuth(
     next();
   } catch (err) {
     if (err instanceof AppError) return next(err);
-    return next(new AppError('Invalid or expired token', 401));
+    return next(new AppError('Your session expired. Please sign in again.', 401));
   }
 }
 
@@ -50,7 +50,7 @@ export function requirePortal(...portals: PortalType[]) {
       return next(new AppError('Authentication required', 401));
     }
     if (!portals.includes(req.user.portal)) {
-      return next(new AppError('Forbidden for this portal', 403));
+      return next(new AppError('You do not have permission to access this area.', 403));
     }
     next();
   };
@@ -85,10 +85,10 @@ export function requireMasterAdmin(
     return next(new AppError('Authentication required', 401));
   }
   if (req.user.portal !== 'admin') {
-    return next(new AppError('Master admin access required', 403));
+    return next(new AppError('Master admin access is required for this action.', 403));
   }
   if (!['master_admin', 'admin'].includes(req.user.role)) {
-    return next(new AppError('Insufficient admin role', 403));
+    return next(new AppError('Your admin role cannot perform this action.', 403));
   }
   next();
 }

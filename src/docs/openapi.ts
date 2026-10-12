@@ -544,7 +544,7 @@ Product images and affiliate logos are multipart fields (\`image\` / \`logo\`) a
                   logo: {
                     type: 'string',
                     format: 'binary',
-                    description: 'Logo image (max 5MB)',
+                    description: 'Logo image (max 10MB)',
                   },
                 },
               },
@@ -800,7 +800,7 @@ Product images and affiliate logos are multipart fields (\`image\` / \`logo\`) a
                   image: {
                     type: 'string',
                     format: 'binary',
-                    description: 'Product image (max 5MB)',
+                    description: 'Product image (max 10MB)',
                   },
                 },
               },

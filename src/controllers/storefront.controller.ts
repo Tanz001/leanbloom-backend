@@ -1,7 +1,10 @@
 import { NextFunction, Request, Response } from 'express';
 import { StorefrontService } from '../services/storefront.service';
 import { AppError } from '../middleware/errorHandler';
-import { storefrontCheckoutSchema } from '../utils/validation';
+import {
+  storefrontBuyLeadSchema,
+  storefrontCheckoutSchema,
+} from '../utils/validation';
 
 export const StorefrontController = {
   async listTenants(_req: Request, res: Response, next: NextFunction) {
@@ -51,6 +54,25 @@ export const StorefrontController = {
       res.status(201).json({
         message: 'Order submitted for clinical review',
         ...result,
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async captureBuyLead(req: Request, res: Response, next: NextFunction) {
+    try {
+      const parsed = storefrontBuyLeadSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw new AppError(
+          parsed.error.issues[0]?.message || 'Invalid email or product',
+          400
+        );
+      }
+      const lead = await StorefrontService.captureBuyLead(parsed.data);
+      res.status(201).json({
+        message: 'Thanks — continue to purchase',
+        lead,
       });
     } catch (err) {
       next(err);
