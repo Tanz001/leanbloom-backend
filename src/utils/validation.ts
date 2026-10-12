@@ -279,6 +279,35 @@ export const createAdminOrderSchema = z.object({
 
 export type CreateAdminOrderInput = z.infer<typeof createAdminOrderSchema>;
 
+export const updateAdminPatientSchema = z.object({
+  affiliateId: z.string().uuid().optional(),
+  name: z.string().min(2).max(150).optional(),
+  email: z.string().email().max(255).optional(),
+  phone: z.string().max(50).optional().or(z.literal('')).nullable(),
+  activeProgram: z.string().max(200).optional().or(z.literal('')).nullable(),
+  status: z.enum(['Active', 'Pending Intake', 'Inactive']).optional(),
+});
+
+export type UpdateAdminPatientInput = z.infer<typeof updateAdminPatientSchema>;
+
+export const updateAdminOrderSchema = z.object({
+  affiliateId: z.string().uuid().optional(),
+  patientId: z.string().uuid().optional(),
+  productId: z.string().uuid().optional().nullable(),
+  productName: z.string().max(200).optional().or(z.literal('')),
+  amount: z.coerce.number().min(0).optional(),
+  status: z
+    .enum(['Completed', 'Processing', 'Pending', 'Cancelled', 'Refunded'])
+    .optional(),
+  paymentMethod: z.string().max(100).optional().or(z.literal('')).nullable(),
+  shippingStatus: z
+    .enum(['Delivered', 'In Transit', 'Fulfillment Queue', 'Pending Lab'])
+    .optional()
+    .nullable(),
+});
+
+export type UpdateAdminOrderInput = z.infer<typeof updateAdminOrderSchema>;
+
 /** Self-serve profile update (name only; email change deferred) */
 export const updateProfileSchema = z.object({
   name: z.string().trim().min(2).max(150),

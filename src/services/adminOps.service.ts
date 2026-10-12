@@ -5,6 +5,8 @@ import { AppError } from '../middleware/errorHandler';
 import {
   CreateAdminOrderInput,
   CreateAdminPatientInput,
+  UpdateAdminOrderInput,
+  UpdateAdminPatientInput,
 } from '../utils/validation';
 
 function formatDate(value: unknown): string {
@@ -99,6 +101,99 @@ export const AdminOpsService = {
     const created = list.find((p) => p.id === id);
     if (!created) throw new AppError('Patient created but could not be loaded', 500);
     return created;
+  },
+
+  async getPatientById(id: string) {
+    const list = await this.listPatients();
+    const patient = list.find((p) => p.id === id);
+    if (!patient) throw new AppError('Patient not found', 404);
+    return patient;
+  },
+
+  async updatePatient(id: string, input: UpdateAdminPatientInput) {
+    const existing = await this.getPatientById(id);
+    const nextAffiliateId = input.affiliateId || existing.affiliateId;
+
+    if (input.affiliateId && input.affiliateId !== existing.affiliateId) {
+      const [aff] = await pool.execute<RowDataPacket[]>(
+        `SELECT id FROM affiliates WHERE id = ? LIMIT 1`,
+        [input.affiliateId]
+      );
+      if (!aff[0]) throw new AppError('Affiliate not found', 404);
+    }
+
+    const nextEmail = (input.email ?? existing.email).toLowerCase().trim();
+    if (
+      nextEmail !== existing.email.toLowerCase() ||
+      nextAffiliateId !== existing.affiliateId
+    ) {
+      const [dup] = await pool.execute<RowDataPacket[]>(
+        `SELECT id FROM patients
+         WHERE affiliate_id = ? AND email = ? AND id <> ? LIMIT 1`,
+        [nextAffiliateId, nextEmail, id]
+      );
+      if (dup.length) {
+        throw new AppError(
+          'A patient with this email already exists for that affiliate',
+          409
+        );
+      }
+    }
+
+    const fields: string[] = [];
+    const values: (string | number | null)[] = [];
+
+    if (input.affiliateId !== undefined) {
+      fields.push('affiliate_id = ?');
+      values.push(input.affiliateId);
+    }
+    if (input.name !== undefined) {
+      fields.push('name = ?');
+      values.push(input.name.trim());
+    }
+    if (input.email !== undefined) {
+      fields.push('email = ?');
+      values.push(nextEmail);
+    }
+    if (input.phone !== undefined) {
+      fields.push('phone = ?');
+      values.push(input.phone?.trim() || null);
+    }
+    if (input.activeProgram !== undefined) {
+      fields.push('active_program = ?');
+      values.push(input.activeProgram?.trim() || null);
+    }
+    if (input.status !== undefined) {
+      fields.push('status = ?');
+      values.push(input.status);
+    }
+
+    if (!fields.length) return existing;
+
+    fields.push('last_activity_at = NOW(3)');
+    values.push(id);
+    await pool.execute(
+      `UPDATE patients SET ${fields.join(', ')} WHERE id = ?`,
+      values
+    );
+
+    return this.getPatientById(id);
+  },
+
+  async removePatient(id: string) {
+    await this.getPatientById(id);
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+      await conn.execute(`DELETE FROM orders WHERE patient_id = ?`, [id]);
+      await conn.execute(`DELETE FROM patients WHERE id = ?`, [id]);
+      await conn.commit();
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
   },
 
   async listOrders(affiliateId?: string) {
@@ -228,5 +323,100 @@ export const AdminOpsService = {
     const created = list.find((o) => o.orderId === id);
     if (!created) throw new AppError('Order created but could not be loaded', 500);
     return created;
+  },
+
+  async getOrderById(id: string) {
+    const list = await this.listOrders();
+    const order = list.find((o) => o.orderId === id);
+    if (!order) throw new AppError('Order not found', 404);
+    return order;
+  },
+
+  async updateOrder(id: string, input: UpdateAdminOrderInput) {
+    const existing = await this.getOrderById(id);
+    const nextAffiliateId = input.affiliateId || existing.affiliateId;
+    const nextPatientId = input.patientId || existing.patientId;
+
+    if (input.patientId || input.affiliateId) {
+      const [patientRows] = await pool.execute<RowDataPacket[]>(
+        `SELECT id, affiliate_id FROM patients WHERE id = ? LIMIT 1`,
+        [nextPatientId]
+      );
+      if (!patientRows[0]) throw new AppError('Patient not found', 404);
+      if (patientRows[0].affiliate_id !== nextAffiliateId) {
+        throw new AppError(
+          'Patient does not belong to the selected affiliate',
+          400
+        );
+      }
+    }
+
+    let productName = input.productName?.trim();
+    let productId =
+      input.productId !== undefined ? input.productId : existing.productId;
+    let amount = input.amount;
+
+    if (productId) {
+      const [prodRows] = await pool.execute<RowDataPacket[]>(
+        `SELECT id, name, base_price FROM products WHERE id = ? LIMIT 1`,
+        [productId]
+      );
+      if (!prodRows[0]) throw new AppError('Product not found', 404);
+      if (!productName) productName = prodRows[0].name as string;
+      if (amount == null && input.productId) {
+        amount = Number(prodRows[0].base_price);
+      }
+    }
+
+    const fields: string[] = [];
+    const values: (string | number | null)[] = [];
+
+    if (input.affiliateId !== undefined) {
+      fields.push('affiliate_id = ?');
+      values.push(input.affiliateId);
+    }
+    if (input.patientId !== undefined) {
+      fields.push('patient_id = ?');
+      values.push(input.patientId);
+    }
+    if (input.productId !== undefined) {
+      fields.push('product_id = ?');
+      values.push(productId);
+    }
+    if (productName !== undefined && productName !== '') {
+      fields.push('product_name = ?');
+      values.push(productName);
+    }
+    if (amount !== undefined) {
+      fields.push('amount = ?');
+      values.push(Number(amount));
+    }
+    if (input.status !== undefined) {
+      fields.push('status = ?');
+      values.push(input.status);
+    }
+    if (input.paymentMethod !== undefined) {
+      fields.push('payment_method = ?');
+      values.push(input.paymentMethod?.trim() || null);
+    }
+    if (input.shippingStatus !== undefined) {
+      fields.push('shipping_status = ?');
+      values.push(input.shippingStatus);
+    }
+
+    if (!fields.length) return existing;
+
+    values.push(id);
+    await pool.execute(
+      `UPDATE orders SET ${fields.join(', ')} WHERE id = ?`,
+      values
+    );
+
+    return this.getOrderById(id);
+  },
+
+  async removeOrder(id: string) {
+    await this.getOrderById(id);
+    await pool.execute(`DELETE FROM orders WHERE id = ?`, [id]);
   },
 };

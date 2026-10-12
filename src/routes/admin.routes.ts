@@ -40,8 +40,12 @@ router.get('/products/:id', AdminController.getProduct);
 
 router.get('/patients', AdminController.listPatients);
 router.post('/patients', AdminController.createPatient);
+router.patch('/patients/:id', AdminController.updatePatient);
+router.delete('/patients/:id', AdminController.deletePatient);
 router.get('/orders', AdminController.listOrders);
 router.post('/orders', AdminController.createOrder);
+router.patch('/orders/:id', AdminController.updateOrder);
+router.delete('/orders/:id', AdminController.deleteOrder);
 router.post(
   '/products',
   productImageUpload.single('image'),

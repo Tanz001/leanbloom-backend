@@ -9,6 +9,8 @@ import {
   createAdminPatientSchema,
   createAffiliateSchema,
   createProductSchema,
+  updateAdminOrderSchema,
+  updateAdminPatientSchema,
   updateAffiliateSchema,
   updateProductSchema,
 } from '../utils/validation';
@@ -282,6 +284,42 @@ export const AdminController = {
     }
   },
 
+  async updatePatient(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const parsed = updateAdminPatientSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw new AppError(
+          parsed.error.issues[0]?.message || 'Invalid patient data',
+          400
+        );
+      }
+      const patient = await AdminOpsService.updatePatient(
+        String(req.params.id),
+        parsed.data
+      );
+      res.json({ message: 'Patient updated', patient });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async deletePatient(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      await AdminOpsService.removePatient(String(req.params.id));
+      res.json({ message: 'Patient deleted' });
+    } catch (err) {
+      next(err);
+    }
+  },
+
   // —— Orders ——
   async listOrders(
     req: AuthenticatedRequest,
@@ -315,6 +353,42 @@ export const AdminController = {
       }
       const order = await AdminOpsService.createOrder(parsed.data);
       res.status(201).json({ message: 'Order created', order });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async updateOrder(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const parsed = updateAdminOrderSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw new AppError(
+          parsed.error.issues[0]?.message || 'Invalid order data',
+          400
+        );
+      }
+      const order = await AdminOpsService.updateOrder(
+        String(req.params.id),
+        parsed.data
+      );
+      res.json({ message: 'Order updated', order });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async deleteOrder(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      await AdminOpsService.removeOrder(String(req.params.id));
+      res.json({ message: 'Order deleted' });
     } catch (err) {
       next(err);
     }
