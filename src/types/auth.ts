@@ -12,6 +12,15 @@ export type JwtPayload = {
   affiliateName?: string;
 };
 
+export type SubscriptionSummary = {
+  status: 'none' | 'pending_payment' | 'active' | 'expired' | 'cancelled';
+  hasAccess: boolean;
+  planName?: string;
+  planPrice?: number;
+  endsAt?: string | null;
+  daysRemaining?: number | null;
+};
+
 export type AuthUser = {
   id: string;
   name: string;
@@ -23,6 +32,7 @@ export type AuthUser = {
   affiliateName?: string;
   affiliateStatus?: string;
   avatarUrl?: string | null;
+  subscription?: SubscriptionSummary;
 };
 
 export type AuthenticatedRequest = Request & {

@@ -238,6 +238,13 @@ export const AffiliateService = {
 
       await conn.commit();
 
+      try {
+        const { SubscriptionService } = await import('./subscription.service');
+        await SubscriptionService.createComplimentary(affiliateId);
+      } catch {
+        /* plans table may not exist yet */
+      }
+
       const affiliate = await this.getById(affiliateId);
       return { affiliate };
     } catch (err) {

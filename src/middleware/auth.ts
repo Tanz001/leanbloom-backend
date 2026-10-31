@@ -92,3 +92,31 @@ export function requireMasterAdmin(
   }
   next();
 }
+
+/** Blocks affiliate portal APIs until subscription is paid/active */
+export async function requireActiveSubscription(
+  req: AuthenticatedRequest,
+  _res: Response,
+  next: NextFunction
+) {
+  try {
+    if (!req.user?.affiliateId) {
+      return next(new AppError('Affiliate context missing', 403));
+    }
+    const { SubscriptionService } = await import(
+      '../services/subscription.service'
+    );
+    const allowed = await SubscriptionService.hasAccess(req.user.affiliateId);
+    if (!allowed) {
+      return next(
+        new AppError(
+          'Subscription required. Renew your plan to access the portal.',
+          402
+        )
+      );
+    }
+    next();
+  } catch (err) {
+    next(err);
+  }
+}

@@ -13,6 +13,27 @@ export const affiliateSignupSchema = z.object({
   phone: z.string().max(50).optional().or(z.literal('')),
   password: z.string().min(8).max(128),
   customDomain: z.string().max(255).optional().or(z.literal('')),
+  planId: z.string().uuid().optional(),
+});
+
+export const createPlanSchema = z.object({
+  name: z.string().min(2).max(150),
+  description: z.string().max(2000).optional().or(z.literal('')),
+  price: z.coerce.number().min(0).max(100000),
+  isActive: z.boolean().optional(),
+  sortOrder: z.coerce.number().int().optional(),
+});
+
+export const updatePlanSchema = z.object({
+  name: z.string().min(2).max(150).optional(),
+  description: z.string().max(2000).optional().nullable().or(z.literal('')),
+  price: z.coerce.number().min(0).max(100000).optional(),
+  isActive: z.boolean().optional(),
+  sortOrder: z.coerce.number().int().optional(),
+});
+
+export const captureSubscriptionSchema = z.object({
+  orderId: z.string().min(3).max(100),
 });
 
 export const createAffiliateSchema = z.object({
@@ -325,3 +346,6 @@ export const changePasswordSchema = z
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+export type CreatePlanInput = z.infer<typeof createPlanSchema>;
+export type UpdatePlanInput = z.infer<typeof updatePlanSchema>;
+export type CaptureSubscriptionInput = z.infer<typeof captureSubscriptionSchema>;

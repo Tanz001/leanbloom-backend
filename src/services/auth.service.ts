@@ -11,6 +11,7 @@ import {
   LoginInput,
   UpdateProfileInput,
 } from '../utils/validation';
+import { SubscriptionService } from './subscription.service';
 
 type AdminRow = RowDataPacket & {
   id: string;
@@ -64,6 +65,28 @@ function toPublicAffiliate(row: AffiliateUserRow): AuthUser {
     affiliateName: row.affiliate_name,
     affiliateStatus: row.affiliate_status,
     avatarUrl: row.avatar_url,
+  };
+}
+
+async function withSubscription(user: AuthUser): Promise<AuthUser> {
+  if (user.portal !== 'affiliate' || !user.affiliateId) return user;
+  const sub = await SubscriptionService.getForAffiliate(user.affiliateId);
+  if (!sub) {
+    return {
+      ...user,
+      subscription: { status: 'none', hasAccess: true },
+    };
+  }
+  return {
+    ...user,
+    subscription: {
+      status: sub.status,
+      hasAccess: sub.hasAccess,
+      planName: sub.planName,
+      planPrice: sub.planPrice,
+      endsAt: sub.endsAt,
+      daysRemaining: sub.daysRemaining,
+    },
   };
 }
 
@@ -149,13 +172,14 @@ async function loginAffiliate(
   if (row.affiliate_status === 'Inactive') {
     throw new AppError('Affiliate account is inactive', 403);
   }
+  // Pending affiliates may log in to complete / renew subscription payment
 
   await pool.execute(
     `UPDATE affiliate_users SET last_login_at = NOW(3) WHERE id = ?`,
     [row.id]
   );
 
-  const user = toPublicAffiliate(row);
+  const user = await withSubscription(toPublicAffiliate(row));
   return { token: buildToken(user), user };
 }
 
@@ -275,7 +299,10 @@ export const AuthService = {
 
       await conn.commit();
 
-      const user = toPublicAffiliate(userRows[0]);
+      // Pending PayPal subscription (outside txn so plan FK lookups work cleanly)
+      await SubscriptionService.createPending(affiliateId, input.planId);
+
+      const user = await withSubscription(toPublicAffiliate(userRows[0]));
       return { token: buildToken(user), user };
     } catch (err) {
       await conn.rollback();
@@ -312,7 +339,7 @@ export const AuthService = {
     if (!rows[0] || rows[0].status !== 'Active') {
       throw new AppError('User not found or inactive', 401);
     }
-    return toPublicAffiliate(rows[0]);
+    return withSubscription(toPublicAffiliate(rows[0]));
   },
 
   async updateProfile(

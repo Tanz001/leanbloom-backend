@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { AdminController } from '../controllers/admin.controller';
 import { DomainController } from '../controllers/domain.controller';
+import { PlanController } from '../controllers/plan.controller';
+import { SubscriptionController } from '../controllers/subscription.controller';
 import { requireAuth, requireMasterAdmin } from '../middleware/auth';
 import {
   affiliateLogoUpload,
@@ -37,6 +39,12 @@ router.delete('/affiliates/:id', AdminController.deleteAffiliate);
 router.get('/products', AdminController.listProducts);
 router.get('/pricing', AdminController.listPricing);
 router.get('/products/:id', AdminController.getProduct);
+
+router.get('/plans', PlanController.listAdmin);
+router.post('/plans', PlanController.create);
+router.patch('/plans/:id', PlanController.update);
+router.delete('/plans/:id', PlanController.remove);
+router.get('/subscriptions', SubscriptionController.listAdmin);
 
 router.get('/patients', AdminController.listPatients);
 router.post('/patients', AdminController.createPatient);
