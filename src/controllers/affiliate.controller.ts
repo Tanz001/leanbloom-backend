@@ -5,6 +5,7 @@ import { AuthenticatedRequest } from '../types/auth';
 import {
   createAffiliatePatientSchema,
   setAffiliatePriceSchema,
+  updateAffiliateBrandingSchema,
 } from '../utils/validation';
 
 function affiliateId(req: AuthenticatedRequest): string {
@@ -21,6 +22,52 @@ export const AffiliateController = {
         profile,
         user: req.user,
       });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async getBranding(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const branding = await AffiliatePortalService.getBranding(
+        affiliateId(req)
+      );
+      res.json({ branding });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async updateBranding(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const parsed = updateAffiliateBrandingSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw new AppError(
+          parsed.error.issues[0]?.message || 'Invalid input',
+          400
+        );
+      }
+
+      const file = (req as AuthenticatedRequest & { file?: Express.Multer.File })
+        .file;
+      const payload = { ...parsed.data };
+      if (file) {
+        payload.logoUrl = `/uploads/logos/${file.filename}`;
+      }
+
+      const branding = await AffiliatePortalService.updateBranding(
+        affiliateId(req),
+        payload
+      );
+      res.json({ message: 'Branding updated', branding });
     } catch (err) {
       next(err);
     }

@@ -246,10 +246,50 @@ export const updateProductSchema = z.object({
   stockStatus: z.enum(['In Stock', 'Compounding', 'Backorder']).optional(),
 });
 
+/** Affiliate self-serve storefront branding (no admin-only fields) */
+export const updateAffiliateBrandingSchema = z.object({
+  name: z.string().min(2).max(200).optional(),
+  primaryColor: z.string().max(20).optional(),
+  secondaryColor: z.string().max(20).optional(),
+  logoUrl: z.string().max(500).optional().nullable(),
+  portalTitle: z.string().max(200).optional().nullable(),
+  tagline: z.string().max(255).optional().nullable(),
+  welcomeMessage: z.string().max(2000).optional().nullable(),
+  supportEmail: z
+    .string()
+    .email()
+    .max(255)
+    .optional()
+    .nullable()
+    .or(z.literal('')),
+  supportPhone: z.string().max(50).optional().nullable(),
+  businessHours: z.string().max(200).optional().nullable(),
+  hidePoweredBy: z
+    .union([z.boolean(), z.enum(['true', 'false', '1', '0', 'on', 'off'])])
+    .optional()
+    .transform((v) => {
+      if (v === undefined) return undefined;
+      if (typeof v === 'boolean') return v;
+      return v === 'true' || v === '1' || v === 'on';
+    }),
+  trustBadgeText: z.string().max(255).optional().nullable(),
+  clinicalPartnerNote: z.string().max(2000).optional().nullable(),
+  fontFamily: z
+    .enum(['Plus Jakarta Sans', 'Inter', 'Outfit', 'DM Sans', 'Playfair Display'])
+    .optional(),
+  borderRadius: z
+    .enum(['rounded-md', 'rounded-lg', 'rounded-xl', 'rounded-full'])
+    .optional(),
+  headerTheme: z.enum(['white', 'navy', 'dark', 'cream']).optional(),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type AffiliateSignupInput = z.infer<typeof affiliateSignupSchema>;
 export type CreateAffiliateInput = z.infer<typeof createAffiliateSchema>;
 export type UpdateAffiliateInput = z.infer<typeof updateAffiliateSchema>;
+export type UpdateAffiliateBrandingInput = z.infer<
+  typeof updateAffiliateBrandingSchema
+>;
 export type CreateProductInput = z.infer<typeof createProductSchema>;
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
 

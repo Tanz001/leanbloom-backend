@@ -6,6 +6,7 @@ import {
   requireAffiliate,
   requireActiveSubscription,
 } from '../middleware/auth';
+import { affiliateLogoUpload } from '../middleware/upload';
 
 const router = Router();
 
@@ -20,6 +21,13 @@ router.post('/subscription/cancel', SubscriptionController.cancel);
 router.get('/me', AffiliateController.me);
 
 router.use(requireActiveSubscription);
+
+router.get('/branding', AffiliateController.getBranding);
+router.patch(
+  '/branding',
+  affiliateLogoUpload.single('logo'),
+  AffiliateController.updateBranding
+);
 
 router.get('/dashboard', AffiliateController.dashboard);
 

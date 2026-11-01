@@ -2,9 +2,11 @@ import { randomUUID } from 'crypto';
 import { RowDataPacket } from 'mysql2';
 import { pool } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
+import { AffiliateService } from './affiliate.service';
 import {
   CreateAffiliatePatientInput,
   SetAffiliatePriceInput,
+  UpdateAffiliateBrandingInput,
 } from '../utils/validation';
 
 const SUBDOMAIN_BASE = process.env.SUBDOMAIN_BASE || 'leanbloom.com';
@@ -77,6 +79,70 @@ function mapProfile(row: AffRow) {
   };
 }
 
+type BrandingRow = RowDataPacket & {
+  id: string;
+  name: string;
+  slug: string;
+  contact_email: string;
+  contact_phone: string | null;
+  primary_color: string | null;
+  secondary_color: string | null;
+  logo_url: string | null;
+  tagline: string | null;
+  portal_title: string | null;
+  welcome_message: string | null;
+  support_email: string | null;
+  support_phone: string | null;
+  business_hours: string | null;
+  hide_powered_by: number | boolean | null;
+  trust_badge_text: string | null;
+  clinical_partner_note: string | null;
+  font_family: string | null;
+  border_radius: string | null;
+  header_theme: string | null;
+  custom_domain: string | null;
+};
+
+function mapBranding(row: BrandingRow) {
+  const subdomain = `${row.slug}.${SUBDOMAIN_BASE}`;
+  const domain = row.custom_domain || subdomain;
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    subdomain,
+    domain,
+    website: `https://${domain}`,
+    primaryColor: row.primary_color || '#173B72',
+    secondaryColor: row.secondary_color || '#4FAF4A',
+    logoUrl: row.logo_url || null,
+    tagline: row.tagline || '',
+    portalTitle: row.portal_title || '',
+    welcomeMessage: row.welcome_message || '',
+    supportEmail: row.support_email || row.contact_email || '',
+    supportPhone: row.support_phone || row.contact_phone || '',
+    businessHours: row.business_hours || '',
+    hidePoweredBy: Boolean(row.hide_powered_by),
+    trustBadgeText: row.trust_badge_text || '',
+    clinicalPartnerNote: row.clinical_partner_note || '',
+    fontFamily:
+      (row.font_family as
+        | 'Plus Jakarta Sans'
+        | 'Inter'
+        | 'Outfit'
+        | 'DM Sans'
+        | 'Playfair Display') || 'Plus Jakarta Sans',
+    borderRadius:
+      (row.border_radius as
+        | 'rounded-md'
+        | 'rounded-lg'
+        | 'rounded-xl'
+        | 'rounded-full') || 'rounded-xl',
+    headerTheme:
+      (row.header_theme as 'white' | 'navy' | 'dark' | 'cream') || 'navy',
+  };
+}
+
 export const AffiliatePortalService = {
   async getProfile(affiliateId: string) {
     const [rows] = await pool.execute<AffRow[]>(
@@ -98,6 +164,50 @@ export const AffiliatePortalService = {
     );
     if (!rows[0]) throw new AppError('Affiliate not found', 404);
     return mapProfile(rows[0]);
+  },
+
+  async getBranding(affiliateId: string) {
+    const [rows] = await pool.execute<BrandingRow[]>(
+      `SELECT
+         a.id, a.name, a.slug, a.contact_email, a.contact_phone,
+         b.primary_color, b.secondary_color, b.logo_url, b.tagline,
+         b.portal_title, b.welcome_message, b.support_email, b.support_phone,
+         b.business_hours, b.hide_powered_by, b.trust_badge_text,
+         b.clinical_partner_note, b.font_family, b.border_radius, b.header_theme,
+         (
+           SELECT d.domain FROM domains d
+           WHERE d.affiliate_id = a.id AND d.type = 'Custom Domain'
+           ORDER BY d.is_primary DESC, d.created_at ASC LIMIT 1
+         ) AS custom_domain
+       FROM affiliates a
+       LEFT JOIN affiliate_branding b ON b.affiliate_id = a.id
+       WHERE a.id = ?
+       LIMIT 1`,
+      [affiliateId]
+    );
+    if (!rows[0]) throw new AppError('Affiliate not found', 404);
+
+    // Ensure branding row exists for older affiliates
+    if (rows[0].primary_color == null && rows[0].portal_title == null) {
+      await pool.execute(
+        `INSERT IGNORE INTO affiliate_branding (affiliate_id, portal_title, support_email)
+         VALUES (?, ?, ?)`,
+        [affiliateId, rows[0].name, rows[0].contact_email]
+      );
+      return this.getBranding(affiliateId);
+    }
+
+    return mapBranding(rows[0]);
+  },
+
+  async updateBranding(
+    affiliateId: string,
+    input: UpdateAffiliateBrandingInput
+  ) {
+    // Ensure branding row exists before UPDATE
+    await this.getBranding(affiliateId);
+    await AffiliateService.update(affiliateId, input);
+    return this.getBranding(affiliateId);
   },
 
   async getDashboard(affiliateId: string) {
