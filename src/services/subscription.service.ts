@@ -23,6 +23,17 @@ type SubRow = RowDataPacket & {
   contact_email?: string;
 };
 
+export type BillingQuote = {
+  /** First checkout is 3 months at 10% off. Later checkouts are 1 full-price month. */
+  kind: 'initial' | 'monthly';
+  months: number;
+  monthlyPrice: number;
+  listAmount: number;
+  discountPercent: number;
+  amountDue: number;
+  label: string;
+};
+
 export type SubscriptionInfo = {
   id: string;
   affiliateId: string;
@@ -36,7 +47,52 @@ export type SubscriptionInfo = {
   lastPaymentAt: string | null;
   hasAccess: boolean;
   daysRemaining: number | null;
+  billing: BillingQuote;
 };
+
+const INITIAL_MONTHS = 3;
+const INITIAL_DISCOUNT_PERCENT = 10;
+
+function money(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+export function quoteBilling(
+  monthlyPrice: number,
+  hasPaidBefore: boolean
+): BillingQuote {
+  const monthly = money(Number(monthlyPrice) || 0);
+  if (!hasPaidBefore) {
+    const listAmount = money(monthly * INITIAL_MONTHS);
+    const amountDue = money(
+      listAmount * (1 - INITIAL_DISCOUNT_PERCENT / 100)
+    );
+    return {
+      kind: 'initial',
+      months: INITIAL_MONTHS,
+      monthlyPrice: monthly,
+      listAmount,
+      discountPercent: INITIAL_DISCOUNT_PERCENT,
+      amountDue,
+      label: '3 months upfront, 10% off',
+    };
+  }
+  return {
+    kind: 'monthly',
+    months: 1,
+    monthlyPrice: monthly,
+    listAmount: monthly,
+    discountPercent: 0,
+    amountDue: monthly,
+    label: '1 month',
+  };
+}
+
+function addMonths(from: Date, months: number) {
+  const next = new Date(from);
+  next.setMonth(next.getMonth() + months);
+  return next;
+}
 
 function iso(d: Date | null | undefined) {
   if (!d) return null;
@@ -73,6 +129,7 @@ function mapSub(row: SubRow): SubscriptionInfo {
     lastPaymentAt: iso(row.last_payment_at),
     hasAccess,
     daysRemaining,
+    billing: quoteBilling(Number(row.plan_price), Boolean(row.last_payment_at)),
   };
 }
 
@@ -223,16 +280,17 @@ export const SubscriptionService = {
     }
     if (!sub) throw new AppError('Could not create subscription', 500);
 
-    if (sub.hasAccess) {
-      throw new AppError('Subscription is already active', 400);
+    const billing = sub.billing;
+    if (billing.amountDue <= 0) {
+      throw new AppError('No payment is due on this plan', 400);
     }
 
     const returnUrl = `${env.appPublicUrl.replace(/\/$/, '')}/#/subscription/complete`;
     const cancelUrl = `${env.appPublicUrl.replace(/\/$/, '')}/#/subscription`;
 
     const order = await PaypalService.createOrder({
-      amount: sub.planPrice,
-      description: `${sub.planName} — monthly subscription`,
+      amount: billing.amountDue,
+      description: `${sub.planName} — ${billing.label}`,
       returnUrl,
       cancelUrl,
     });
@@ -246,8 +304,9 @@ export const SubscriptionService = {
       orderId: order.orderId,
       approveUrl: order.approveUrl,
       mock: order.mock,
-      amount: sub.planPrice,
+      amount: billing.amountDue,
       planName: sub.planName,
+      billing,
     };
   },
 
@@ -267,20 +326,16 @@ export const SubscriptionService = {
       }
     }
 
+    const billing = quoteBilling(
+      Number(row.plan_price),
+      Boolean(row.last_payment_at)
+    );
     const startsAt = new Date();
-    const endsAt = new Date(startsAt);
-    endsAt.setMonth(endsAt.getMonth() + 1);
-
-    // If renewing while still having leftover days, extend from current ends_at
-    if (
-      row.status === 'active' &&
-      row.ends_at &&
-      new Date(row.ends_at).getTime() > Date.now()
-    ) {
-      const from = new Date(row.ends_at);
-      endsAt.setTime(from.getTime());
-      endsAt.setMonth(endsAt.getMonth() + 1);
-    }
+    const extendFrom =
+      row.ends_at && new Date(row.ends_at).getTime() > Date.now()
+        ? new Date(row.ends_at)
+        : startsAt;
+    const endsAt = addMonths(extendFrom, billing.months);
 
     await pool.execute(
       `UPDATE affiliate_subscriptions
