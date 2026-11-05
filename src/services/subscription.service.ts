@@ -4,6 +4,7 @@ import { AppError } from '../middleware/errorHandler';
 import { env } from '../config/env';
 import { PlanService } from './plan.service';
 import { PaypalService } from './paypal.service';
+import { EmailService } from './email.service';
 
 type SubRow = RowDataPacket & {
   id: string;
@@ -355,6 +356,27 @@ export const SubscriptionService = {
       [affiliateId]
     );
 
-    return this.getForAffiliate(affiliateId);
+    const updated = await this.getForAffiliate(affiliateId);
+    try {
+      const [contacts] = await pool.execute<RowDataPacket[]>(
+        `SELECT contact_name, contact_email FROM affiliates WHERE id = ? LIMIT 1`,
+        [affiliateId]
+      );
+      const contact = contacts[0];
+      if (contact?.contact_email && updated) {
+        await EmailService.sendPlanPurchase({
+          to: String(contact.contact_email),
+          name: String(contact.contact_name || 'there'),
+          planName: updated.planName,
+          amount: billing.amountDue,
+          months: billing.months,
+          endsAt: updated.endsAt,
+        });
+      }
+    } catch (err) {
+      console.error('Plan purchase email failed', err);
+    }
+
+    return updated;
   },
 };

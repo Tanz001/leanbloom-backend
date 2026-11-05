@@ -2,10 +2,13 @@ import { NextFunction, Response } from 'express';
 import { AuthService } from '../services/auth.service';
 import { AppError } from '../middleware/errorHandler';
 import { AuthenticatedRequest } from '../types/auth';
+import { OtpService } from '../services/otp.service';
 import {
   affiliateSignupSchema,
   changePasswordSchema,
   loginSchema,
+  otpCodeSchema,
+  resetPasswordSchema,
   updateProfileSchema,
 } from '../utils/validation';
 
@@ -22,6 +25,103 @@ export const AuthController = {
         message: 'Login successful',
         ...result,
       });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async requestSignupOtp(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const parsed = affiliateSignupSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw new AppError(parsed.error.issues[0]?.message || 'Invalid input', 400);
+      }
+      const result = await OtpService.requestSignupOtp(parsed.data);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async verifySignupOtp(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const parsed = otpCodeSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw new AppError(parsed.error.issues[0]?.message || 'Invalid code', 400);
+      }
+      const result = await OtpService.verifySignupOtp(
+        parsed.data.email,
+        parsed.data.code
+      );
+      res.status(201).json({
+        message: 'Email verified. Your partner account is ready.',
+        ...result,
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async requestPasswordOtp(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const email = String(req.body?.email || '');
+      if (!email.includes('@')) {
+        throw new AppError('Enter a valid email', 400);
+      }
+      const result = await OtpService.requestPasswordOtp(email);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async verifyPasswordOtp(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const parsed = otpCodeSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw new AppError(parsed.error.issues[0]?.message || 'Invalid code', 400);
+      }
+      const result = await OtpService.verifyPasswordOtp(
+        parsed.data.email,
+        parsed.data.code
+      );
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async resetPassword(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const parsed = resetPasswordSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw new AppError(parsed.error.issues[0]?.message || 'Invalid input', 400);
+      }
+      const result = await OtpService.resetPassword(
+        parsed.data.resetToken,
+        parsed.data.newPassword
+      );
+      res.json(result);
     } catch (err) {
       next(err);
     }

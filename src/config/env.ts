@@ -17,6 +17,11 @@ export const env = {
     (!process.env.PAYPAL_CLIENT_ID && process.env.NODE_ENV !== 'production'),
   appPublicUrl:
     process.env.APP_PUBLIC_URL || 'http://localhost:5173',
+  smtpHost: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
+  smtpPort: Number(process.env.SMTP_PORT) || 587,
+  smtpUser: process.env.SMTP_USER || '',
+  smtpPass: process.env.SMTP_PASS || '',
+  smtpFrom: process.env.SMTP_FROM || 'support@leanbloom.health',
 };
 
 export const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')

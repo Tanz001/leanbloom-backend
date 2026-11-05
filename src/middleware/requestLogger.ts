@@ -3,9 +3,14 @@ import { NextFunction, Request, Response } from 'express';
 const SENSITIVE_KEYS = new Set([
   'password',
   'password_hash',
+  'newpassword',
+  'currentpassword',
   'token',
+  'resettoken',
   'authorization',
   'jwt',
+  'otp',
+  'code',
 ]);
 
 function redact(value: unknown): unknown {

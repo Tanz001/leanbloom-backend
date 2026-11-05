@@ -384,8 +384,20 @@ export const changePasswordSchema = z
     path: ['newPassword'],
   });
 
+export const otpCodeSchema = z.object({
+  email: z.string().email().max(255),
+  code: z.string().regex(/^\d{6}$/, 'Enter the 6-digit code'),
+});
+
+export const resetPasswordSchema = z.object({
+  resetToken: z.string().min(20),
+  newPassword: z.string().min(8).max(128),
+});
+
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+export type OtpCodeInput = z.infer<typeof otpCodeSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type CreatePlanInput = z.infer<typeof createPlanSchema>;
 export type UpdatePlanInput = z.infer<typeof updatePlanSchema>;
 export type CaptureSubscriptionInput = z.infer<typeof captureSubscriptionSchema>;

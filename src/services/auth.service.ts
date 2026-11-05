@@ -212,7 +212,10 @@ export const AuthService = {
     }
   },
 
-  async signupAffiliate(input: AffiliateSignupInput): Promise<AuthResponse> {
+  async signupAffiliate(
+    input: AffiliateSignupInput,
+    existingPasswordHash?: string
+  ): Promise<AuthResponse> {
     const email = input.email.toLowerCase().trim();
     const phone = input.phone?.trim() || null;
 
@@ -248,7 +251,8 @@ export const AuthService = {
         }
       }
 
-      const passwordHash = await hashPassword(input.password);
+      const passwordHash =
+        existingPasswordHash || (await hashPassword(input.password));
 
       const [affResult] = await conn.execute<ResultSetHeader>(
         `INSERT INTO affiliates
