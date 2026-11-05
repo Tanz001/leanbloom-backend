@@ -97,6 +97,22 @@ async function send(to: string, subject: string, html: string, text: string) {
 }
 
 export const EmailService = {
+  async checkConnection() {
+    if (!env.smtpUser || !env.smtpPass) {
+      return { ok: false, message: 'SMTP user or password is missing in .env' };
+    }
+    try {
+      await transport().verify();
+      return {
+        ok: true,
+        message: `Email connected (${env.smtpHost}:${env.smtpPort} as ${env.smtpFrom})`,
+      };
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : 'SMTP verify failed';
+      return { ok: false, message: `Email not connected: ${detail}` };
+    }
+  },
+
   async sendOtp(to: string, code: string, purpose: 'signup' | 'password_reset') {
     const title =
       purpose === 'signup'

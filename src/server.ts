@@ -2,6 +2,7 @@ import 'dotenv/config';
 import app from './app';
 import { env } from './config/env';
 import { pool } from './config/db';
+import { EmailService } from './services/email.service';
 
 const PORT = env.port;
 
@@ -14,6 +15,10 @@ async function start() {
     console.error(err);
     process.exit(1);
   }
+
+  const email = await EmailService.checkConnection();
+  if (email.ok) console.log(email.message);
+  else console.error(email.message);
 
   app.listen(PORT, () => {
     console.log(`LeanBloom API running on http://localhost:${PORT}`);
